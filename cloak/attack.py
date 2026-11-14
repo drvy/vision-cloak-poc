@@ -25,8 +25,14 @@ def _jpeg_roundtrip(x: torch.Tensor, quality: int) -> torch.Tensor:
 def augment(x: torch.Tensor) -> torch.Tensor:
     """Random differentiable transform that mimics resizing, noise and recompression."""
     h, w = x.shape[-2:]
-    scale = random.uniform(0.6, 1.0)
+    scale = random.uniform(0.5, 1.0)
     x = F.interpolate(x, size=(max(64, int(h * scale)), max(64, int(w * scale))), mode="bilinear", align_corners=False)
+    if random.random() < 0.5:
+        k = random.choice([3, 5])
+        x = F.avg_pool2d(F.pad(x, (k // 2,) * 4, mode="reflect"), k, stride=1)
+    ch, cw = int(x.shape[-2] * random.uniform(0.8, 1.0)), int(x.shape[-1] * random.uniform(0.8, 1.0))
+    top, left = random.randint(0, x.shape[-2] - ch), random.randint(0, x.shape[-1] - cw)
+    x = x[..., top:top + ch, left:left + cw]
     x = x + torch.randn_like(x) * random.uniform(0.0, 0.02)
     if random.random() < 0.5:
         x = _jpeg_roundtrip(x, random.randint(50, 95))

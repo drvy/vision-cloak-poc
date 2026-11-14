@@ -3,3 +3,7 @@ open_clip_torch>=2.26
 pillow>=10.4
 numpy>=1.26
 tqdm>=4.66
+timm>=1.0
+transformers>=4.44
+sentencepiece>=0.2
+protobuf>=4.25
