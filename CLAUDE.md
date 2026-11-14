@@ -4,8 +4,9 @@ Adversarial image cloaking: PGD + EOT over an ensemble of CLIP encoders (open_cl
 
 ## Commands
 - `scripts/setup_env.sh [cpu]`: create `.venv` (default torch 2.7.1 cu126; cu128+ dropped Pascal sm_61).
-- `python -m cloak.cli [--cpu] [--large] [--max-side 512] protect IN OUT [--eps 8] [--steps 100] [--decoy "text"] [--no-eot]`
+- `python -m cloak.cli [--cpu] [--large] [--siglip] [--max-side 512] protect IN OUT [--eps 8] [--steps 100] [--decoy "text"] [--no-eot]`
 - `python -m cloak.cli evaluate ORIGINAL CLOAKED`: zero-shot CLIP labels + cosine on original vs cloaked (and with augmentation).
+- `python -m cloak.cli obscure IN OUT [--mode pixelate|blur] [--block 32] [--region x,y,w,h]`: visible obfuscation.
 - `scripts/deploy.sh <host>`: rsync to `<host>:~/cloak/` (excludes .venv, out*, samples).
 
 ## Gotchas

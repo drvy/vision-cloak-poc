@@ -10,6 +10,7 @@ DEFAULT_MODELS = [
     ("ViT-B-16", "laion2b_s34b_b88k"),
 ]
 LARGE_MODELS = DEFAULT_MODELS + [("ViT-L-14", "laion2b_s32b_b82k")]
+SIGLIP_MODELS = [("ViT-B-16-SigLIP", "webli")]
 
 
 @dataclass
@@ -21,7 +22,8 @@ class Encoder:
     mean: torch.Tensor
     std: torch.Tensor
     size: int
-    tokenizer: object
+    arch: str
+    _tokenizer: object = None
 
     def embed(self, x: torch.Tensor) -> torch.Tensor:
         """Return L2-normalized embeddings for images in [0, 1], shape (B, 3, H, W)."""
@@ -32,7 +34,9 @@ class Encoder:
     @torch.no_grad()
     def embed_text(self, prompts: list[str], device: str) -> torch.Tensor:
         """Return L2-normalized text embeddings."""
-        tokens = self.tokenizer(prompts).to(device)
+        if self._tokenizer is None:
+            self._tokenizer = open_clip.get_tokenizer(self.arch)
+        tokens = self._tokenizer(prompts).to(device)
         return F.normalize(self.model.encode_text(tokens).float(), dim=-1)
 
 
@@ -57,7 +61,7 @@ def load_ensemble(specs: list[tuple[str, str]], device: str, half: bool) -> list
                 size=model.visual.image_size[0]
                 if isinstance(model.visual.image_size, tuple)
                 else model.visual.image_size,
-                tokenizer=open_clip.get_tokenizer(arch),
+                arch=arch,
             )
         )
     return encoders

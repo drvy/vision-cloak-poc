@@ -4,10 +4,11 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
+from PIL import Image, ImageFilter
 
 from .attack import augment, cloak
 from .io import load_image, save_image
-from .models import DEFAULT_MODELS, LARGE_MODELS, load_ensemble
+from .models import DEFAULT_MODELS, LARGE_MODELS, SIGLIP_MODELS, load_ensemble
 
 LABELS = ["a photo of a person", "a photo of a dog", "a photo of a cat", "a photo of a car",
           "a photo of a building", "a photo of food", "a photo of a landscape",
@@ -17,7 +18,9 @@ LABELS = ["a photo of a person", "a photo of a dog", "a photo of a cat", "a phot
 def _setup(args):
     """Resolve device and load the encoder ensemble."""
     device = "cuda" if torch.cuda.is_available() and not args.cpu else "cpu"
-    specs = LARGE_MODELS if args.large else DEFAULT_MODELS
+    specs = list(LARGE_MODELS if args.large else DEFAULT_MODELS)
+    if args.siglip:
+        specs += SIGLIP_MODELS
     return device, load_ensemble(specs, device, half=device == "cuda")
 
 
@@ -59,11 +62,28 @@ def evaluate(args) -> None:
         print(f"{e.name:34s} cosine(original, cloaked) = {cos:.3f}")
 
 
+def obscure(args) -> None:
+    """Pixelate or blur an image (or a region) so its content is no longer recognizable."""
+    img = Image.open(args.input).convert("RGB")
+    box = tuple(int(v) for v in args.region.split(",")) if args.region else (0, 0, *img.size)
+    x, y, w, h = box
+    part = img.crop((x, y, x + w, y + h))
+    if args.mode == "pixelate":
+        small = part.resize((max(1, w // args.block), max(1, h // args.block)), Image.BOX)
+        part = small.resize((w, h), Image.NEAREST)
+    else:
+        part = part.filter(ImageFilter.GaussianBlur(args.block))
+    img.paste(part, (x, y))
+    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+    img.save(args.output, format="PNG")
+
+
 def main() -> None:
     """Parse arguments and dispatch."""
     p = argparse.ArgumentParser(prog="cloak")
     p.add_argument("--cpu", action="store_true")
     p.add_argument("--large", action="store_true", help="add ViT-L/14 to the ensemble")
+    p.add_argument("--siglip", action="store_true", help="add SigLIP ViT-B/16 to the ensemble")
     p.add_argument("--max-side", type=int, default=512)
     sub = p.add_subparsers(required=True)
     a = sub.add_parser("protect")
@@ -78,6 +98,13 @@ def main() -> None:
     b.add_argument("original")
     b.add_argument("cloaked")
     b.set_defaults(fn=evaluate)
+    c = sub.add_parser("obscure")
+    c.add_argument("input")
+    c.add_argument("output")
+    c.add_argument("--mode", choices=["pixelate", "blur"], default="pixelate")
+    c.add_argument("--block", type=int, default=32, help="pixel block size or blur radius")
+    c.add_argument("--region", help="x,y,w,h (default: whole image)")
+    c.set_defaults(fn=obscure)
     args = p.parse_args()
     args.fn(args)
 
