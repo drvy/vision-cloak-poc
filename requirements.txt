@@ -1,0 +1,5 @@
+# Torch is installed separately (see scripts/setup_env.sh) to pick the right CUDA build.
+open_clip_torch>=2.26
+pillow>=10.4
+numpy>=1.26
+tqdm>=4.66
